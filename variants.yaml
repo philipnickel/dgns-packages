@@ -18,11 +18,13 @@ c_stdlib_version:
   - if: osx
     then: "11.0"
 #
-# MPI implementation. Enabling LUMI (Cray MPICH, docs/cluster-io-plan.md) is
-# the one line `- mpich`: every MPI recipe then builds a second variant
-# against conda-forge's mpich, whose run_exports select it at install time.
+# MPI implementation: the MPICH ABI (libmpi.so.12, dgns#122). One build runs
+# on conda-forge's mpich (laptop) and, through mpich=*=external_*, on the
+# site MPI of the clusters: Intel MPI on DTU, Cray MPICH on LUMI. Open MPI
+# builds (mpi_openmpi_*, until 2026-11-03) stay on the channel for older
+# checkouts.
 mpi:
-  - openmpi
+  - mpich
 
 # x86-64 microarchitecture level of mfem-dgns (conda-forge's microarch-level
 # helper, knowledge base "Microarchitecture-optimized builds"): one

@@ -1,7 +1,7 @@
 # Conda packages for dgns
 
 Recipes for the packages the dgns solver (philipnickel/dgns) needs that conda-forge does not provide. Everything else (hypre, METIS, zlib,
-BLAS/LAPACK, HDF5, Open MPI) comes from conda-forge. The recipes are
+BLAS/LAPACK, HDF5, MPICH) comes from conda-forge. The recipes are
 rattler-build v1 recipes; `.github/workflows/packages.yml` builds them and
 publishes them to the prefix.dev channel `dgns`.
 
@@ -54,14 +54,18 @@ Build caliper and gslib before mfem; reflect-cpp is independent.
 `variants.yaml` (linked into each MPI recipe directory, so rattler-build
 finds it without `--variant-config`):
 
-- `mpi`: `openmpi` only. Caliper, gslib and mfem take the MPI package in
+- `mpi`: `mpich` only (dgns#122, since 2026-11-03): the MPICH ABI
+  (`libmpi.so.12`), so one build runs on conda-forge's mpich and, through
+  `mpich=*=external_*`, on a site MPI with the same ABI (Intel MPI on DTU,
+  Cray MPICH on LUMI). Caliper, gslib and mfem take the MPI package in
   their host requirements; its run_exports (conda-forge's
-  `openmpi >=5.0.x,<6`) set the run dependency. Build strings follow
-  conda-forge: `mpi_openmpi_h<hash>_<number>`, and each package's
+  `mpich >=5.0,<6`) set the run dependency. Build strings follow
+  conda-forge: `mpi_mpich_h<hash>_<number>`, and each package's
   run_exports carry the build-string constraint so downstream builds pick
-  the same MPI (`caliper >=2.15.0,<2.16.0a0 mpi_openmpi_*`). hypre 3.x on
+  the same MPI (`caliper >=2.15.0,<2.16.0a0 mpi_mpich_*`). hypre 3.x on
   conda-forge has no `mpi_` build string; the host MPI selects its build.
-  HDF5 is `hdf5 * mpi_<mpi>_*`.
+  HDF5 is `hdf5 * mpi_<mpi>_*`. The Open MPI builds (`mpi_openmpi_*`)
+  published until then stay on the channel for older checkouts.
 - `microarch_level` (mfem only): conda-forge's microarchitecture helper
   (knowledge base, "Microarchitecture-optimized builds"). On linux-64, mfem
   builds once, with `x86_64-microarch-level ==3` (its activation appends
@@ -76,14 +80,13 @@ finds it without `--variant-config`):
   (Zen 3); AWS hpc7a (Zen 4). osx-arm64 builds once, with
   `-mcpu=apple-m1`.
 
-### Enabling LUMI later (MPICH)
+### Site MPI (DTU, LUMI)
 
-Add `- mpich` under `mpi:` in `variants.yaml`. Every MPI recipe then builds
-an `mpi_mpich_*` variant next to the Open MPI one (conda-forge has MPICH
-builds of hypre and HDF5), and an environment chooses by depending on
-`mpich` or `openmpi` (on LUMI, conda-forge's `mpich=*=external_*` so Cray
-MPICH is used at run time, inside the container). Recipe tests export only
-`OMPI_*` variables, which MPICH ignores.
+The packages need no rebuild per site: an environment depending on
+conda-forge's `mpich=*=external_*` installs no MPI library, and the site
+MPI with the MPICH ABI is loaded at run time (DTU: `module load
+intel/<year>.mpi`; LUMI: Cray MPICH, inside the container). The solver
+uses only MPI functions that Intel MPI 2021+ provides.
 
 ## Local builds
 
