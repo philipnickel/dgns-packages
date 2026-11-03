@@ -1,4 +1,4 @@
-# Caliper for the hodgles conda channel (README.md). Caliper is not on
+# Caliper for the dgns conda channel (README.md). Caliper is not on
 # conda-forge; MFEM links it (MFEM_USE_CALIPER) and the solver's profiling
 # ranges are Caliper regions (AGENTS.md "Stock MFEM and profiling"). Shared,
 # so libmfem and the solver use one Caliper runtime. Profiling stays off until
@@ -45,7 +45,7 @@ requirements:
     - ${{ compiler('cxx') }}
     # The glibc floor (../variants.yaml c_stdlib_version).
     - ${{ stdlib('c') }}
-    # Same compiler pins as mfem-hodgles, reflect-cpp and the solver.
+    # Same compiler pins as mfem-dgns, reflect-cpp and the solver.
     - if: linux
       then: gcc_linux-64 14.*
     - if: linux

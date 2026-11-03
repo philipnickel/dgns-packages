@@ -1,19 +1,24 @@
-# Conda packages for hodgles
+# Conda packages for dgns
 
-Recipes for the packages hodgles (high-order discontinuous Galerkin large
-eddy simulations) needs that conda-forge does not provide. Everything else (hypre, METIS, zlib,
+Recipes for the packages the dgns solver (philipnickel/dgns) needs that conda-forge does not provide. Everything else (hypre, METIS, zlib,
 BLAS/LAPACK, HDF5, Open MPI) comes from conda-forge. The recipes are
 rattler-build v1 recipes; `.github/workflows/packages.yml` builds them and
-publishes them to the prefix.dev channel `hodgles`.
+publishes them to the prefix.dev channel `dgns`.
+
+Until 2026-11-03 the repository was `hodgles-packages`, the channel
+`philipnickel/hodgles` and the MFEM package `mfem-hodgles`; `mfem-dgns`
+4.10.0.post5 on the `dgns` channel is the same recipe under the new name.
+The old channel stays readable for older checkouts.
 
 | Recipe | Package | What |
 |---|---|---|
 | `caliper/` | `caliper` 2.15.0 | LLNL Caliper, shared, MPI; upstream tarball plus upstream fix af80b77 (`caliper-iterator-cstdlib.patch`) |
 | `gslib/` | `gslib` 1.0.9 | Nek5000 GSLIB, shared, MPI (MFEM's FindPointsGSLIB) |
 | `reflect-cpp/` | `reflect-cpp` 0.26.2 | the option contract's serialization; its own README.md |
-| `mfem/` | `mfem-hodgles` 4.10.0.post5 | stock upstream MFEM 4.10.0 (no patches): MPI, hypre, METIS, zlib, LAPACK, GSLIB, Caliper, parallel HDF5 |
+| `mfem/` | `mfem-dgns` 4.10.0.post5 | stock upstream MFEM 4.10.0 (no patches): MPI, hypre, METIS, zlib, LAPACK, GSLIB, Caliper, parallel HDF5 |
 
-Compared with the earlier `mfem-dgns` 4.10.0.post4 (built from a PyMFEM fork,
+Compared with the earlier `mfem-dgns` 4.10.0.post4 (channel `philipnickel-dgns`,
+built from a PyMFEM fork,
 which vendored Caliper and a static GSLIB and hard-pinned Open MPI 5.0.10),
 post5 differs: Caliper and GSLIB are their own packages
 (GSLIB now shared), parallel HDF5 is on (`MFEM_USE_HDF5`, so
@@ -23,7 +28,7 @@ run_exports, linux-64 has a generic and an x86-64-v3 build, and there is no
 PyMFEM package. Like post4 it builds with
 `-fno-visibility-inlines-hidden` (so a consumer's kernel specializations
 reach libmfem's dispatch tables) and `-O3`. `run_exports` pins
-`mfem-hodgles` exactly.
+`mfem-dgns` exactly.
 
 Recipe tests: package contents; caliper builds a consumer whose region shows
 in a `runtime-report`; gslib checks `GSLIB_USE_MPI`; mfem checks the config
@@ -38,8 +43,8 @@ GridFunction (two cycles; `hdf5-out/hdf5_smoke.vtkhdf` must be non-empty).
 
 ```
 caliper ─┐
-gslib  ──┴─> mfem-hodgles ─┐
-reflect-cpp ────────────┴─> hodgles-solver (built from the private hodgles repository)
+gslib  ──┴─> mfem-dgns ─┐
+reflect-cpp ────────────┴─> dgns-solver (built from the private dgns repository)
 ```
 
 Build caliper and gslib before mfem; reflect-cpp is independent.
@@ -99,13 +104,13 @@ rattler-build build --recipe mfem -c conda-forge -c "$PWD/out" --output-dir "$PW
 ```
 
 `out/` is ignored by git. Each build runs its recipe tests. Add
-`--skip-existing all -c https://prefix.dev/philipnickel/hodgles`
+`--skip-existing all -c https://prefix.dev/philipnickel/dgns`
 to skip builds whose hash is already published. linux-64
 builds need a Linux host (CI); `--target-platform linux-64` from macOS
 cross-compiles but cannot run the tests.
 
 Bump `build.number` (the `build` context entry) for any change to a recipe
-or patch; bump the version's `.postN` for `mfem-hodgles`. Published packages
+or patch; bump the version's `.postN` for `mfem-dgns`. Published packages
 are immutable.
 
 ## Publishing
@@ -121,7 +126,7 @@ and test only.
 
 The upload uses prefix.dev trusted publishing (GitHub OIDC), so no API key
 is stored. One-time setup on prefix.dev: in the channel's settings add a
-trusted publisher for GitHub repository `philipnickel/hodgles-packages`, workflow
+trusted publisher for GitHub repository `philipnickel/dgns-packages`, workflow
 `packages.yml`. If trusted publishing is not wanted, create an API key, store it
 as the repository secret `PREFIX_API_KEY` and pass
 `PREFIX_API_KEY: ${{ secrets.PREFIX_API_KEY }}` to the upload step's
@@ -130,17 +135,17 @@ environment.
 By hand (a local build, after review):
 
 ```bash
-PREFIX_API_KEY=... rattler-build upload prefix --channel philipnickel/hodgles out/osx-arm64/mfem-hodgles-4.10.0.post5-*.conda
+PREFIX_API_KEY=... rattler-build upload prefix --channel philipnickel/dgns out/osx-arm64/mfem-dgns-4.10.0.post5-*.conda
 ```
 
 ## Channels
 
-- `hodgles`: these dependencies and the solver builds used for
+- `dgns`: these dependencies and the solver builds used for
   report results (releases).
-- `hodgles-dev` (later): solver development builds
-  (`hodgles-solver`, versioned by date and commit, published on demand before
+- `dgns-dev` (later): solver development builds
+  (`dgns-solver`, versioned by date and commit, published on demand before
   cluster campaigns), so development builds never mix with the release
   channel.
 
-After a publish, the hodgles workspace reads `mfem-hodgles` and reflect-cpp
-from `hodgles`.
+After a publish, the dgns workspace reads `mfem-dgns` and reflect-cpp
+from `dgns`.

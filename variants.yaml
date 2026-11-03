@@ -24,7 +24,7 @@ c_stdlib_version:
 mpi:
   - openmpi
 
-# x86-64 microarchitecture level of mfem-hodgles (conda-forge's microarch-level
+# x86-64 microarchitecture level of mfem-dgns (conda-forge's microarch-level
 # helper, knowledge base "Microarchitecture-optimized builds"): a generic
 # build and an x86-64-v3 (AVX2, FMA) build on linux-64; the solver prefers
 # the v3 build (higher build number) where __archspec allows it. Only the

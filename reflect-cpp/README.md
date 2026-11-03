@@ -1,4 +1,4 @@
-# reflect-cpp for the hodgles channel
+# reflect-cpp for the dgns channel
 
 reflect-cpp (option contract, `docs/architecture.md`) is not on conda-forge,
 so it is built here as `reflect-cpp` 0.26.2 with two patches:
@@ -13,7 +13,7 @@ so it is built here as `reflect-cpp` 0.26.2 with two patches:
 
 JSON only, bundled yyjson/ctre/enchantum, shared library, C++20. The package
 test builds `test-cmake/` (a versioned `find_package`, a tagged-union read and
-its schema), as `mfem-hodgles` does.
+its schema), as `mfem-dgns` does.
 
 ## Build locally
 
@@ -32,11 +32,11 @@ host, or `--target-platform linux-64` in CI) lets it
 move to the plain host dependencies. Its `run_exports` (`>=0.26.2,<0.27`) put
 it into the solver's run dependencies.
 
-## Publish to the hodgles channel
+## Publish to the dgns channel
 
 Published packages are immutable. `.github/workflows/packages.yml` builds
 this recipe for linux-64 and osx-arm64 (after caliper and gslib, before
-mfem) and uploads it to `https://prefix.dev/philipnickel/hodgles`
+mfem) and uploads it to `https://prefix.dev/philipnickel/dgns`
 on the default branch or a manual dispatch; `README.md` describes
 the workflow, local builds and the prefix.dev setup. Once published, drop
 the `file://` channel from `pyproject.toml`, move `reflect-cpp` from

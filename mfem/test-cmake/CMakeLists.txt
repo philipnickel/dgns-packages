@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(mfem_hodgles_consumer LANGUAGES CXX)
+project(mfem_dgns_consumer LANGUAGES CXX)
 
 find_package(MFEM 4.10 REQUIRED CONFIG)
 

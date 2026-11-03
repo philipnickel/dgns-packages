@@ -1,4 +1,4 @@
-# GSLIB for the hodgles conda channel (README.md): the Nek5000
+# GSLIB for the dgns conda channel (README.md): the Nek5000
 # gather-scatter and findpts library that MFEM 4.10 uses for
 # FindPointsGSLIB (MFEM_USE_GSLIB), the version MFEM fetches itself and
 # Spack's mfem+gslib uses. Not on conda-forge.
@@ -37,7 +37,7 @@ requirements:
     - ${{ compiler('c') }}
     # The glibc floor (../variants.yaml c_stdlib_version).
     - ${{ stdlib('c') }}
-    # Same compiler pin as mfem-hodgles, reflect-cpp and the solver.
+    # Same compiler pin as mfem-dgns, reflect-cpp and the solver.
     - if: linux
       then: gcc_linux-64 14.*
     - make

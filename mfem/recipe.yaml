@@ -1,4 +1,4 @@
-# mfem-hodgles for the hodgles conda channel (README.md): stock upstream
+# mfem-dgns for the dgns conda channel (README.md): stock upstream
 # MFEM 4.10.0, no source patches, with the solver's feature set (build.sh).
 # MPI is a variant (../variants.yaml); the MPI run dependency comes from the
 # MPI package's run_exports. On linux-64 a generic and an x86-64-v3 build
@@ -12,7 +12,7 @@ context:
   build_number: ${{ build + 100 * (microarch_level | int - 1) }}
 
 package:
-  name: mfem-hodgles
+  name: mfem-dgns
   version: ${{ version }}
 
 source:
@@ -59,7 +59,7 @@ requirements:
     - zlib
     - hdf5 * mpi_${{ mpi }}_*
   run_exports:
-    - ${{ pin_subpackage('mfem-hodgles', exact=True) }}
+    - ${{ pin_subpackage('mfem-dgns', exact=True) }}
 
 tests:
   - package_contents:
@@ -106,7 +106,7 @@ about:
   repository: https://github.com/mfem/mfem
   license: BSD-3-Clause
   license_file: LICENSE
-  summary: Stock MFEM 4.10 C++ library (MPI, HDF5, GSLIB, Caliper) for hodgles
+  summary: Stock MFEM 4.10 C++ library (MPI, HDF5, GSLIB, Caliper) for dgns
   description: |
     Stock upstream MFEM 4.10.0 (no patches) built as a shared library with
     MPI, hypre, METIS, zlib, LAPACK, GSLIB, Caliper and parallel HDF5
