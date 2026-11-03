@@ -25,11 +25,13 @@ mpi:
   - openmpi
 
 # x86-64 microarchitecture level of mfem-dgns (conda-forge's microarch-level
-# helper, knowledge base "Microarchitecture-optimized builds"): a generic
-# build and an x86-64-v3 (AVX2, FMA) build on linux-64; the solver prefers
-# the v3 build (higher build number) where __archspec allows it. Only the
-# mfem recipe uses this key; osx-arm64 builds once.
+# helper, knowledge base "Microarchitecture-optimized builds"): one
+# x86-64-v3 (AVX2, FMA) build on linux-64. Every machine the solver runs on
+# supports it (README.md, "Variants"); the solver workspace declares its
+# linux-64 platform as x86_64_v3 so the lock resolves it. Only the mfem
+# recipe uses this key; osx-arm64 builds once (the value is unused there).
 microarch_level:
-  - 1
   - if: linux and x86_64
     then: 3
+  - if: osx
+    then: 1

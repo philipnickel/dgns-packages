@@ -10,8 +10,7 @@ set -euxo pipefail
 # Conda-forge's CXXFLAGS carry -O2, which comes after CMake's Release -O3 in
 # config.mk; append -O3 so the partial-assembly kernels are optimized.
 # The CPU baseline: on linux-64 the x86_64-microarch-level build dependency
-# appends -march=x86-64-v3 for the v3 variant (and nothing for the generic
-# one, which keeps conda-forge's -march=nocona); on osx-arm64 Apple M1.
+# appends -march=x86-64-v3; on osx-arm64 Apple M1.
 # Conda-forge's CXXFLAGS also carry -fvisibility-inlines-hidden, which hides
 # the function-local static of every inline Kernels::Get() (the PA and
 # quadrature-interpolator dispatch tables, fem/kernel_dispatch.hpp). A

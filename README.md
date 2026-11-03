@@ -64,12 +64,16 @@ finds it without `--variant-config`):
   HDF5 is `hdf5 * mpi_<mpi>_*`.
 - `microarch_level` (mfem only): conda-forge's microarchitecture helper
   (knowledge base, "Microarchitecture-optimized builds"). On linux-64, mfem
-  builds with `x86_64-microarch-level ==1` (conda-forge's generic
-  `-march=nocona`) and `==3` (its activation appends `-march=x86-64-v3`:
-  AVX2, FMA; Haswell and newer, every DTU hpc node). Their run_exports add
-  `_x86_64-microarch-level >=N`, which only installs where `__archspec`
-  allows; the v3 build has build number 200 (level 1: 0), so the solver
-  prefers it wherever it can run. osx-arm64 builds once, with
+  builds once, with `x86_64-microarch-level ==3` (its activation appends
+  `-march=x86-64-v3`: AVX2, FMA, BMI2). Its run_exports add
+  `_x86_64-microarch-level >=3`, which only installs where `__archspec` is
+  x86-64-v3 or newer, so the solver workspace declares its linux-64
+  platform with `archspec = "x86_64_v3"`. Until 2026-11-03 a generic build
+  (level 1, `-march=nocona`) was published as well, and the solver's lock,
+  resolved for a generic x86_64, used that one. Every machine we run on is
+  v3 or newer (checked 2026-11-03): DTU's LSF hosts, oldest Xeon E5 v3
+  (Haswell, which defines v3) and EPYC 7551 (Zen 1); LUMI-C's EPYC 7763
+  (Zen 3); AWS hpc7a (Zen 4). osx-arm64 builds once, with
   `-mcpu=apple-m1`.
 
 ### Enabling LUMI later (MPICH)

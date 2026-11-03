@@ -58,8 +58,8 @@ jobs:
           setup-only: true
 
       # Dependency order: mfem needs caliper and gslib; reflect-cpp is
-      # independent (the solver needs it). On linux-64, mfem builds twice
-      # (microarch_level 1 and 3, variants.yaml).
+      # independent (the solver needs it). On linux-64, mfem builds once, for
+      # x86-64-v3 (variants.yaml).
       - name: Build and test
         shell: bash
         run: |

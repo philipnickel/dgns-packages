@@ -1,8 +1,8 @@
 # mfem-dgns for the dgns conda channel (README.md): stock upstream
 # MFEM 4.10.0, no source patches, with the solver's feature set (build.sh).
 # MPI is a variant (../variants.yaml); the MPI run dependency comes from the
-# MPI package's run_exports. On linux-64 a generic and an x86-64-v3 build
-# (conda-forge's microarch-level helper); the solver picks by __archspec.
+# MPI package's run_exports. On linux-64 one x86-64-v3 build (conda-forge's
+# microarch-level helper, ../variants.yaml).
 context:
   version: 4.10.0.post5
   mfem_version: 4.10.0
