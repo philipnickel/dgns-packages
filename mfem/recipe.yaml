@@ -83,13 +83,13 @@ tests:
       - grep -q '^#define H5_HAVE_PARALLEL 1' $PREFIX/include/H5pubconf.h
       - cmake -S test-cmake -B build-consumer -G Ninja -DCMAKE_BUILD_TYPE=Release
       - cmake --build build-consumer
-      - env OMPI_MCA_rmaps_base_oversubscribe=1 mpiexec -n 2 build-consumer/parmesh_smoke
+      - mpiexec -n 2 build-consumer/parmesh_smoke
       # Caliper reports the consumer's MFEM_PERF_SCOPE region when enabled.
-      - env OMPI_MCA_rmaps_base_oversubscribe=1 CALI_CONFIG=runtime-report mpiexec -n 2 build-consumer/parmesh_smoke > caliper-report.txt 2>&1
+      - env CALI_CONFIG=runtime-report mpiexec -n 2 build-consumer/parmesh_smoke > caliper-report.txt 2>&1
       - cat caliper-report.txt
       - grep -q 'parmesh_smoke' caliper-report.txt
       # Two ranks write one shared VTKHDF file (ParMesh + GridFunction, two cycles).
-      - env OMPI_MCA_rmaps_base_oversubscribe=1 mpiexec -n 2 build-consumer/hdf5_smoke
+      - mpiexec -n 2 build-consumer/hdf5_smoke
       - test -s hdf5-out/hdf5_smoke.vtkhdf
       - ls -l hdf5-out
     requirements:
