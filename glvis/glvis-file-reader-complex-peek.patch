@@ -1,0 +1,27 @@
+--- a/lib/file_reader.cpp	2026-11-14 11:28:11
++++ b/lib/file_reader.cpp	2026-11-14 11:28:11
+@@ -137,18 +137,14 @@
+ 
+ bool FileReader::CheckStreamIsComplex(std::istream &solin, bool parallel)
+ {
+-   string buff;
+-   auto pos = solin.tellg();
+-   solin >> ws;
+-   getline(solin, buff);
+-   solin.seekg(pos);
+-   if (!buff.empty() && *buff.rbegin() == '\r')
+-   {
+-      buff.resize(buff.size()-1);
+-   }
++   // As StreamReader::CheckStreamIsComplex: compare only the first character.
++   // Seeking back after reading the header line does not work on MFEM's
++   // ifgzstream when MFEM is built with zlib (the grid function then fails to
++   // load: "input stream is not a FiniteElementSpace!").
+    const char *header = (parallel)?("ParComplexGridFunction"):
+                         ("ComplexGridFunction");
+-   return (buff == header);
++   solin >> ws;
++   return (solin.peek() == header[0]);
+ }
+ 
+ int FileReader::ReadParMeshAndGridFunction(int np, const char *mesh_prefix,
