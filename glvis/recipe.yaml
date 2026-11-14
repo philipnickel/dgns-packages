@@ -37,6 +37,11 @@ build:
   number: ${{ build }}
   string: mpi_${{ mpi }}_h${{ hash }}_${{ build }}
   script:
+    # MFEM's assertion macros put __FILE__ into the binary, which would carry
+    # the host prefix (mfem headers) and the work directory; map both to
+    # fixed names so the package holds no build paths (the CI builds with
+    # --error-prefix-in-binary).
+    - export CXXFLAGS="${CXXFLAGS} -fmacro-prefix-map=${PREFIX}=/mfem-dgns -fmacro-prefix-map=${SRC_DIR}=/glvis"
     - cmake -G Ninja -S . -B build ${CMAKE_ARGS}
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX=$PREFIX

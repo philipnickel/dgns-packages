@@ -44,7 +44,9 @@ jobs:
         include:
           - runner: ubuntu-24.04
             target-platform: linux-64
-          - runner: macos-14
+          # macos-14 runners are no longer offered (2026-11-14: "The
+          # configuration 'macos-14-arm64-us-default' is not supported").
+          - runner: macos-15
             target-platform: osx-arm64
     runs-on: ${{ matrix.runner }}
     steps:
