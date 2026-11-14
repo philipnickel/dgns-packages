@@ -112,7 +112,8 @@ tests:
           - glvis -hl -saved hex_cut.stream && test "$(wc -c < hex_cut.png)" -gt 2000
           - glvis -hl -run hex_file.glvs && test "$(wc -c < hex_file.png)" -gt 2000
         else:
-          - glvis -h | grep -q -i usage
+          # glvis -h prints its options and exits with status 1.
+          - (glvis -h || true) | grep -q "Visualize a mesh"
 
 about:
   homepage: https://glvis.org
