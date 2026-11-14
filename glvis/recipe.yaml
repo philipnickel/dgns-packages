@@ -22,6 +22,16 @@ source:
     # which MFEM's ifgzstream (mfem-dgns has zlib) does not undo: the load
     # aborted. Same first-character check as GLVis's own stream reader.
     - glvis-file-reader-complex-peek.patch
+    # The cutting plane set exactly, upstream PR GLVis/glvis#374 (merged
+    # 2026-07-29, after 4.5) without its script command (whose surrounding
+    # code changed on master): Plane::SetPlane and
+    # VisualizationScene::SetCuttingPlane.
+    - glvis-cutting-plane-core-pr374.patch
+    # The same as a socket-stream command, which streams lacked (only key
+    # presses could move the plane):
+    # 'cutting_plane <phi> <theta> <translation> <kind> <alg>' (degrees;
+    # translation from the bounding-box centre along the normal).
+    - glvis-stream-cutting-plane.patch
 
 build:
   number: ${{ build }}
@@ -85,9 +95,10 @@ tests:
         - test-data/
     script:
       # Headless rendering of a one-hexahedron mesh and an H1 field: a saved
-      # socket stream (the reader the solver's streams use) with the cutting
-      # plane switched on and one step along (keys i, z), and the same data
-      # from files through a GLVis script (the patched file reader). Rendering needs an EGL
+      # socket stream (the reader the solver's streams use) with the patched
+      # 'cutting_plane' command (normal z, 0.2 above the centre), and the
+      # same data from files through a GLVis script (the patched file
+      # reader; keys i, z). Rendering needs an EGL
       # implementation on linux build machines, so only macOS renders here;
       # linux checks that the binary starts.
       - if: osx

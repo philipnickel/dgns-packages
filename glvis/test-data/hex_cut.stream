@@ -42,5 +42,5 @@ Ordering: 0
 3
 2
 
-keys iz
+cutting_plane 90 0 0.2 1 -1
 screenshot hex_cut.png

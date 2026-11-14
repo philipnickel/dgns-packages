@@ -1,0 +1,132 @@
+diff --git a/lib/vsdata.cpp b/lib/vsdata.cpp
+index c43d4dc..d5e0766 100644
+--- a/lib/vsdata.cpp
++++ b/lib/vsdata.cpp
+@@ -1919,6 +1919,7 @@ Plane::Plane(double A,double B,double C,double D)
+    x0 = (x[0]+x[1])/2.0;
+    y0 = (y[0]+y[1])/2.0;
+    z0 = (z[0]+z[1])/2.0;
++   cx = x0; cy = y0; cz = z0;
+ 
+    phi_step = M_PI / 36;
+    theta_step = M_PI / 36;
+@@ -1983,3 +1984,19 @@ void Plane::DecreaseDistance()
+    eqn[3] -= rho_step;
+    CartesianToSpherical();
+ }
++
++void Plane::SetPlane(double phi_, double theta_, double translation)
++{
++   phi = phi_;
++   theta = theta_;
++   rho = 1.0;
++
++   double nx = cos(phi) * cos(theta);
++   double ny = cos(phi) * sin(theta);
++   double nz = sin(phi);
++   x0 = cx + translation * nx;
++   y0 = cy + translation * ny;
++   z0 = cz + translation * nz;
++
++   SphericalToCartesian();
++}
+diff --git a/lib/vsdata.hpp b/lib/vsdata.hpp
+index 86fb61f..7425ca3 100644
+--- a/lib/vsdata.hpp
++++ b/lib/vsdata.hpp
+@@ -23,6 +23,7 @@ private:
+    double eqn[4];
+    double phi, theta, rho;
+    double x0,y0,z0;
++   double cx, cy, cz; // fixed mesh bounding-box center
+    void CartesianToSpherical();
+    void SphericalToCartesian();
+ 
+@@ -44,6 +45,7 @@ public:
+    void DecreaseTheta();
+    void IncreaseDistance();
+    void DecreaseDistance();
++   void SetPlane(double phi_, double theta_, double translation);
+ };
+ 
+ 
+@@ -227,6 +229,19 @@ public:
+    virtual void AutoRefine() = 0;
+    virtual void ToggleAttributes(mfem::Array<int> &attr_list) = 0;
+ 
++   /// @brief Set the cutting-plane orientation, translation, kind, and
++   /// algorithm in one shot.
++   ///
++   /// No-op by default; only meaningful for 3D scenes.
++   ///
++   /// @param phi Orientation angle, in radians.
++   /// @param theta Orientation angle, in radians.
++   /// @param translation Plane translation.
++   /// @param kind Cutting-plane kind, or -1 to leave unchanged.
++   /// @param algo Cutting-plane algorithm, or -1 to leave unchanged.
++   virtual void SetCuttingPlane(double phi, double theta, double translation,
++                                int kind = -1, int algo = -1) { }
++
+    virtual void PrintState();
+ 
+    mfem::Mesh *GetMesh() { return mesh; }
+diff --git a/lib/vssolution3d.cpp b/lib/vssolution3d.cpp
+index 2383fb3..671d11b 100644
+--- a/lib/vssolution3d.cpp
++++ b/lib/vssolution3d.cpp
+@@ -1182,6 +1182,42 @@ void VisualizationSceneSolution3d::ToggleCPAlgorithm()
+    }
+ }
+ 
++void VisualizationSceneSolution3d::SetCuttingPlane(double phi, double theta,
++                                                   double translation,
++                                                   int kind, int algo)
++{
++   const int old_cplane = cplane;
++
++   CuttingPlane->SetPlane(phi, theta, translation);
++   FindNodePos();
++
++   if (kind != -1 && kind != cplane)
++   {
++      if (cplane == 2 && cp_drawmesh == 3)
++      {
++         cp_drawmesh = 2;
++      }
++      cplane = kind;
++   }
++
++   if (algo != -1)
++   {
++      cp_algo = algo;
++   }
++
++   CPPrepare();
++   if (old_cplane == 2 || cplane == 2)
++   {
++      Prepare();
++      PrepareLines();
++
++      if (cplane != old_cplane)
++      {
++         PrepareOrderingCurve();
++      }
++   }
++}
++
+ void VisualizationSceneSolution3d::MoveLevelSurf(int move)
+ {
+    drawlsurf += move;
+diff --git a/lib/vssolution3d.hpp b/lib/vssolution3d.hpp
+index 253f078..464064b 100644
+--- a/lib/vssolution3d.hpp
++++ b/lib/vssolution3d.hpp
+@@ -185,6 +185,8 @@ public:
+    void ToggleCPDrawElems();
+    void ToggleCPDrawMesh();
+    void ToggleCPAlgorithm();
++   void SetCuttingPlane(double phi, double theta, double translation,
++                        int kind, int algo) override;
+    void MoveLevelSurf(int);
+    void NumberOfLevelSurf(int);
+    void EventUpdateColors() override;

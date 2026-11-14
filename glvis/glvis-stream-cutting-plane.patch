@@ -1,0 +1,131 @@
+diff --git a/lib/threads.cpp b/lib/threads.cpp
+index d6c4690..0ea0c60 100644
+--- a/lib/threads.cpp
++++ b/lib/threads.cpp
+@@ -10,6 +10,7 @@
+ // CONTRIBUTING.md for details.
+ 
+ #include <array>
++#include <cmath>
+ #include <algorithm>
+ #include <thread>
+ #include <vector>
+@@ -254,6 +255,26 @@ int GLVisCommand::Pause()
+    return 0;
+ }
+ 
++int GLVisCommand::CuttingPlane(double phi, double theta, double translation,
++                               int kind, int algo)
++{
++   if (lock() < 0)
++   {
++      return -1;
++   }
++   command = Command::CUTTING_PLANE;
++   cplane_phi = phi;
++   cplane_theta = theta;
++   cplane_translation = translation;
++   cplane_kind = kind;
++   cplane_algo = algo;
++   if (signal() < 0)
++   {
++      return -2;
++   }
++   return 0;
++}
++
+ int GLVisCommand::ViewAngles(double theta, double phi)
+ {
+    if (lock() < 0)
+@@ -654,6 +675,18 @@ int GLVisCommand::Execute()
+          break;
+       }
+ 
++      case Command::CUTTING_PLANE:
++      {
++         cout << "Command: cutting_plane: " << cplane_phi << ' '
++              << cplane_theta << ' ' << cplane_translation << ' '
++              << cplane_kind << ' ' << cplane_algo << endl;
++         win.vs->SetCuttingPlane(cplane_phi * M_PI / 180.0,
++                                 cplane_theta * M_PI / 180.0,
++                                 cplane_translation, cplane_kind, cplane_algo);
++         MyExpose();
++         break;
++      }
++
+       case Command::ZOOM:
+       {
+          cout << "Command: zoom: " << zoom_factor << endl;
+@@ -895,6 +928,7 @@ enum class ThreadCommand
+    Screenshot,
+    Viewcenter,
+    View,
++   CuttingPlane,
+    Zoom,
+    Shading,
+    Subdivisions,
+@@ -947,6 +981,7 @@ ThreadCommands::ThreadCommands()
+    (*this)[ThreadCommand::Screenshot]           = {"screenshot", "<file>", "Take a screenshot, saving it to the file."};
+    (*this)[ThreadCommand::Viewcenter]           = {"viewcenter", "<x> <y>", "Change the viewcenter."};
+    (*this)[ThreadCommand::View]                 = {"view", "<theta> <phi>", "Change the solid angle of view."};
++   (*this)[ThreadCommand::CuttingPlane]         = {"cutting_plane", "<phi> <theta> <translation> <kind> <alg>", "Set the cutting plane: orientation (degrees), translation from the bounding-box centre along its normal, kind (-1: keep, 0: none, 1: cut, 2: show behind) and algorithm (-1: keep, 0, 1)."};
+    (*this)[ThreadCommand::Zoom]                 = {"zoom", "<zoom>", "Change the zoom factor."};
+    (*this)[ThreadCommand::Shading]              = {"shading", "<flat/smooth/cool>", "Change the shading algorithm."};
+    (*this)[ThreadCommand::Subdivisions]         = {"subdivisions", "<times> <dummy>", "Change the refinement level."};
+@@ -1291,6 +1326,26 @@ bool communication_thread::execute_one(std::string ident)
+          }
+       }
+       break;
++      case ThreadCommand::CuttingPlane:
++      {
++         double phi, theta, translation, a;
++         int kind, algo, k;
++
++         *is[0] >> phi >> theta >> translation >> kind >> algo;
++
++         // all processors sent the command
++         for (size_t i = 1; i < is.size(); i++)
++         {
++            *is[i] >> ws >> ident; // 'cutting_plane'
++            *is[i] >> a >> a >> a >> k >> k;
++         }
++
++         if (glvis_command->CuttingPlane(phi, theta, translation, kind, algo))
++         {
++            return false;
++         }
++      }
++      break;
+       case ThreadCommand::Zoom:
+       {
+          double factor, a;
+diff --git a/lib/threads.hpp b/lib/threads.hpp
+index 8b3248e..49e76c8 100644
+--- a/lib/threads.hpp
++++ b/lib/threads.hpp
+@@ -44,6 +44,7 @@ private:
+       WINDOW_TITLE,
+       PAUSE,
+       VIEW_ANGLES,
++      CUTTING_PLANE,
+       ZOOM,
+       SUBDIVISIONS,
+       VALUE_RANGE,
+@@ -82,6 +83,8 @@ private:
+    std::string   axis_label_y;
+    std::string   axis_label_z;
+    double        view_ang_theta, view_ang_phi;
++   double        cplane_phi, cplane_theta, cplane_translation;
++   int           cplane_kind, cplane_algo;
+    double        zoom_factor;
+    int           subdiv_tot, subdiv_bdr;
+    double        val_min, val_max;
+@@ -124,6 +127,8 @@ public:
+    int AxisLabels(const char *a_x, const char *a_y, const char *a_z);
+    int Pause();
+    int ViewAngles(double theta, double phi);
++   int CuttingPlane(double phi, double theta, double translation, int kind,
++                    int algo);
+    int Zoom(double factor);
+    int Subdivisions(int tot, int bdr);
+    int ValueRange(double minv, double maxv);
