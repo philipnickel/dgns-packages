@@ -16,6 +16,7 @@ The old channel stays readable for older checkouts.
 | `gslib/` | `gslib` 1.0.9 | Nek5000 GSLIB, shared, MPI (MFEM's FindPointsGSLIB) |
 | `reflect-cpp/` | `reflect-cpp` 0.26.2 | the option contract's serialization; its own README.md |
 | `mfem/` | `mfem-dgns` 4.10.0.post5 | stock upstream MFEM 4.10.0 (no patches): MPI, hypre, METIS, zlib, LAPACK, GSLIB, Caliper, parallel HDF5 |
+| `glvis/` | `glvis` 4.5 | GLVis, MFEM's visualization tool, against `mfem-dgns`, headless (EGL on linux, CGL on macOS). Patches: upstream PR #374's exact cutting plane (core only, `glvis-cutting-plane-core-pr374.patch`); the same as a socket-stream command `cutting_plane <phi> <theta> <translation> <kind> <alg>` (`glvis-stream-cutting-plane.patch`); loading grid functions from files with zlib-enabled MFEM (`glvis-file-reader-complex-peek.patch`) |
 
 Compared with the earlier `mfem-dgns` 4.10.0.post4 (channel `philipnickel-dgns`,
 built from a PyMFEM fork,
@@ -37,7 +38,12 @@ defines (MPI, GSLIB, CALIPER, HDF5 on; thread safety, MPFR, CEED off) and
 `find_package(MFEM 4.10)` and runs on 2 ranks: the ParMesh smoke test, the
 same with `CALI_CONFIG=runtime-report` (its `MFEM_PERF_SCOPE` region must
 appear), and a ParaViewHDFDataCollection write of a ParMesh and an H1
-GridFunction (two cycles; `hdf5-out/hdf5_smoke.vtkhdf` must be non-empty).
+GridFunction (two cycles; `hdf5-out/hdf5_smoke.vtkhdf` must be non-empty). glvis (macOS) renders a one-hexahedron mesh and field
+headless, from a saved socket stream with the `cutting_plane` stream command
+(the solver's path) and from files through a GLVis script, each to a
+non-empty PNG; on linux
+it checks that the binary starts, since headless EGL needs the machine's EGL
+implementation (on DTU's GPU-less nodes: the system Mesa, to be checked there).
 
 ## Dependency order
 

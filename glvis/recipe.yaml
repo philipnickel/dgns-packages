@@ -1,0 +1,123 @@
+# glvis for the dgns conda channel (README.md): GLVis 4.5, MFEM's own
+# visualization tool, built against mfem-dgns (so it reads exactly what the
+# solver streams) with headless rendering: EGL on linux (the EGL
+# implementation comes from the machine: libglvnd's libEGL dispatches to the
+# vendor's or the system Mesa's), CGL on macOS. The solver streams its fields
+# to a headless GLVis server, which renders cutting-plane frames (PNG) without
+# any field data stored. MPI is a variant (../variants.yaml), as for mfem-dgns.
+context:
+  version: "4.5"
+  build: 0
+
+package:
+  name: glvis
+  version: ${{ version }}
+
+source:
+  # Upstream release v4.5 (2026-02-06).
+  url: https://github.com/GLVis/glvis/archive/refs/tags/v${{ version }}.tar.gz
+  sha256: 88acda43bc51e675b053df65e23c16235ca6f4c9562d17bd25f4731292d93149
+  patches:
+    # Loading a grid function from a file read its first line and seeked back,
+    # which MFEM's ifgzstream (mfem-dgns has zlib) does not undo: the load
+    # aborted. Same first-character check as GLVis's own stream reader.
+    - glvis-file-reader-complex-peek.patch
+    # The cutting plane set exactly, upstream PR GLVis/glvis#374 (merged
+    # 2026-07-29, after 4.5) without its script command (whose surrounding
+    # code changed on master): Plane::SetPlane and
+    # VisualizationScene::SetCuttingPlane.
+    - glvis-cutting-plane-core-pr374.patch
+    # The same as a socket-stream command, which streams lacked (only key
+    # presses could move the plane):
+    # 'cutting_plane <phi> <theta> <translation> <kind> <alg>' (degrees;
+    # translation from the bounding-box centre along the normal).
+    - glvis-stream-cutting-plane.patch
+
+build:
+  number: ${{ build }}
+  string: mpi_${{ mpi }}_h${{ hash }}_${{ build }}
+  script:
+    # MFEM's assertion macros put __FILE__ into the binary, which would carry
+    # the host prefix (mfem headers) and the work directory; map both to
+    # fixed names so the package holds no build paths (the CI builds with
+    # --error-prefix-in-binary).
+    - export CXXFLAGS="${CXXFLAGS} -fmacro-prefix-map=${PREFIX}=/mfem-dgns -fmacro-prefix-map=${SRC_DIR}=/glvis"
+    - cmake -G Ninja -S . -B build ${CMAKE_ARGS}
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_INSTALL_PREFIX=$PREFIX
+        -DMFEM_DIR=$PREFIX
+        -DGLVIS_USE_LIBPNG=ON
+        -DGLVIS_USE_LIBTIFF=OFF
+        -DGLVIS_USE_EGL=${{ "ON" if linux else "OFF" }}
+        -DGLVIS_USE_CGL=${{ "ON" if osx else "OFF" }}
+    - cmake --build build --parallel ${CPU_COUNT}
+    # On macOS GLVis's install also builds a self-contained GLVis.app
+    # (fixup_bundle + codesign), which conda's relocation does not need and
+    # which fails on the build prefix; the install is otherwise the
+    # executable alone, so copy that.
+    - if: osx
+      then: mkdir -p $PREFIX/bin && cp build/glvis $PREFIX/bin/glvis
+      else: cmake --install build
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ stdlib('c') }}
+    # Same compiler pins as the other recipes and the solver.
+    - if: linux
+      then: gcc_linux-64 14.*
+    - if: linux
+      then: gxx_linux-64 14.*
+    - cmake >=3.24
+    - ninja
+  host:
+    - ${{ mpi }}
+    - mfem-dgns 4.10.0.post5.* mpi_${{ mpi }}_*
+    - sdl2
+    - glew
+    - glm
+    - freetype
+    - fontconfig
+    - libpng
+    - if: linux
+      then:
+        - libgl-devel
+        - libegl-devel
+  run:
+    - mfem-dgns 4.10.0.post5.* mpi_${{ mpi }}_*
+    - if: linux
+      then:
+        - libegl
+        - libgl
+
+tests:
+  - package_contents:
+      bin:
+        - glvis
+  - files:
+      recipe:
+        - test-data/
+    script:
+      # Headless rendering of a one-hexahedron mesh and an H1 field: a saved
+      # socket stream (the reader the solver's streams use) with the patched
+      # 'cutting_plane' command (normal z, 0.2 above the centre), and the
+      # same data from files through a GLVis script (the patched file
+      # reader; keys i, z). Rendering needs an EGL
+      # implementation on linux build machines, so only macOS renders here;
+      # linux checks that the binary starts.
+      - if: osx
+        then:
+          - cd test-data
+          - glvis -hl -saved hex_cut.stream && test "$(wc -c < hex_cut.png)" -gt 2000
+          - glvis -hl -run hex_file.glvs && test "$(wc -c < hex_file.png)" -gt 2000
+        else:
+          # glvis -h prints its options and exits with status 1.
+          - (glvis -h || true) | grep -q "Visualize a mesh"
+
+about:
+  homepage: https://glvis.org
+  repository: https://github.com/GLVis/glvis
+  license: BSD-3-Clause
+  license_file: LICENSE
+  summary: GLVis, the OpenGL visualization tool of MFEM, built headless (EGL/CGL) against mfem-dgns.
