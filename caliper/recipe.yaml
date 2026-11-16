@@ -34,6 +34,7 @@ build:
         -DBUILD_SHARED_LIBS=ON
         -DMPI_C_COMPILER=$PREFIX/bin/mpicc
         -DMPI_CXX_COMPILER=$PREFIX/bin/mpicxx
+        -DPython_EXECUTABLE=$BUILD_PREFIX/bin/python
         -DWITH_MPI=ON
         -DWITH_TOOLS=ON
         -DWITH_KOKKOS=OFF
@@ -56,6 +57,10 @@ requirements:
       then: gxx_linux-64 14.*
     - cmake >=3.24
     - ninja
+    # The mpi service's wrap.py generator: a pinned Python, not the runner's
+    # (Homebrew's 3.15 on macos-15 rejects its re.Scanner lexicon, "Cannot
+    # use capturing groups in re.Scanner").
+    - python 3.12.*
   host:
     # The MPI package's run_exports carry the run dependency.
     - ${{ mpi }}
