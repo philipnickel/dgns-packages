@@ -12,7 +12,7 @@ The old channel stays readable for older checkouts.
 
 | Recipe | Package | What |
 |---|---|---|
-| `caliper/` | `caliper` 2.15.0 | LLNL Caliper, shared, MPI; upstream tarball plus upstream fix af80b77 (`caliper-iterator-cstdlib.patch`) |
+| `caliper/` | `caliper` 2.15.0 | LLNL Caliper, shared, MPI; upstream tarball plus upstream fix af80b77 (`caliper-iterator-cstdlib.patch`) and a GOTCHA fix so the mpi service sees MPI calls from libraries without a PLT, i.e. hypre and MFEM (`gotcha-no-plt-rela.patch`) |
 | `gslib/` | `gslib` 1.0.9 | Nek5000 GSLIB, shared, MPI (MFEM's FindPointsGSLIB) |
 | `reflect-cpp/` | `reflect-cpp` 0.26.2 | the option contract's serialization; its own README.md |
 | `mfem/` | `mfem-dgns` 4.10.0.post6 | stock upstream MFEM 4.10.0 (no patches): MPI, hypre, METIS, zlib, LAPACK, GSLIB, Caliper, parallel HDF5, PETSc (since post6) |
@@ -40,7 +40,8 @@ every consumer; post5 (without PETSc) stays on the channel and is what the
 solver pins until it opts in.
 
 Recipe tests: package contents; caliper builds a consumer whose region shows
-in a `runtime-report`; gslib checks `GSLIB_USE_MPI`; mfem checks the config
+in a `runtime-report`, and on linux a `-fno-plt` library whose MPI calls must
+show in an `mpi-report`; gslib checks `GSLIB_USE_MPI`; mfem checks the config
 defines (MPI, GSLIB, CALIPER, HDF5, PETSC on; thread safety, MPFR, CEED off) and
 `H5_HAVE_PARALLEL`, then builds `mfem/test-cmake/` with
 `find_package(MFEM 4.10)` and runs on 2 ranks: the ParMesh smoke test, the

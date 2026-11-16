@@ -5,7 +5,7 @@
 # a run sets CALI_CONFIG (or uses cali::ConfigManager).
 context:
   version: 2.15.0
-  build: 1
+  build: 2
 
 package:
   name: caliper
@@ -18,6 +18,10 @@ source:
     # Upstream af80b77 (after 2.15.0): missing <iterator>/<cstdlib> includes
     # that conda-forge's newer libc++ rejects on macOS.
     - caliper-iterator-cstdlib.patch
+    # GOTCHA (ext/gotcha): walk DT_RELA in libraries without a PLT (-fno-plt),
+    # so the mpi service sees MPI calls from conda-forge's hypre and from
+    # mfem-dgns; not yet upstream.
+    - gotcha-no-plt-rela.patch
 
 build:
   number: ${{ build }}
@@ -30,6 +34,7 @@ build:
         -DBUILD_SHARED_LIBS=ON
         -DMPI_C_COMPILER=$PREFIX/bin/mpicc
         -DMPI_CXX_COMPILER=$PREFIX/bin/mpicxx
+        -DPython_EXECUTABLE=$BUILD_PREFIX/bin/python
         -DWITH_MPI=ON
         -DWITH_TOOLS=ON
         -DWITH_KOKKOS=OFF
@@ -52,6 +57,10 @@ requirements:
       then: gxx_linux-64 14.*
     - cmake >=3.24
     - ninja
+    # The mpi service's wrap.py generator: a pinned Python, not the runner's
+    # (Homebrew's 3.15 on macos-15 rejects its re.Scanner lexicon, "Cannot
+    # use capturing groups in re.Scanner").
+    - python 3.12.*
   host:
     # The MPI package's run_exports carry the run dependency.
     - ${{ mpi }}
@@ -86,6 +95,31 @@ tests:
     files:
       recipe:
         - test-cmake/
+  # linux (GOTCHA): MPI calls from a library linked without a PLT (-fno-plt,
+  # -z now, as conda-forge builds hypre) show in mpi-report
+  # (test-gotcha/CMakeLists.txt).
+  - if: linux
+    then:
+      script:
+        - cmake -S test-gotcha -B build-gotcha -G Ninja -DCMAKE_BUILD_TYPE=Release
+            -DMPI_C_COMPILER=$PREFIX/bin/mpicc
+        - cmake --build build-gotcha
+        # The library must have no PLT, or the test does not test the patch.
+        - ${READELF:-readelf} -d build-gotcha/libno_plt_comm.so
+        - "! ${READELF:-readelf} -d build-gotcha/libno_plt_comm.so | grep -q JMPREL"
+        - ${READELF:-readelf} -r build-gotcha/libno_plt_comm.so | grep MPI_Allreduce
+        - env CALI_CONFIG=mpi-report mpiexec -n 2 build-gotcha/gotcha_no_plt > gotcha-report.txt 2>&1
+        - cat gotcha-report.txt
+        - grep -q MPI_Allreduce gotcha-report.txt
+        - grep -q MPI_Barrier gotcha-report.txt
+      requirements:
+        run:
+          - ${{ compiler('c') }}
+          - cmake >=3.24
+          - ninja
+      files:
+        recipe:
+          - test-gotcha/
 
 about:
   homepage: https://github.com/LLNL/Caliper
