@@ -48,8 +48,12 @@ requirements:
     - hypre 3.2.*
     - metis 5.*
     - zlib
-    - libblas
-    - liblapack
+    # OpenBLAS explicitly: with PETSc's link line, libmfem's DT_NEEDED is
+    # OpenBLAS itself, not the switchable libblas.so.3, so consumers must get
+    # libopenblas (its run_exports), not whatever BLAS the solver picks.
+    - libblas * *openblas
+    - liblapack * *openblas
+    - libopenblas
     - hdf5 * mpi_${{ mpi }}_*
     - caliper 2.15.* mpi_${{ mpi }}_*
     - gslib 1.0.9.* mpi_${{ mpi }}_*
@@ -62,6 +66,7 @@ requirements:
     # consumers need the development packages; versions come from run_exports.
     - hypre
     - petsc
+    - libopenblas
     - metis
     - zlib
     - hdf5 * mpi_${{ mpi }}_*
