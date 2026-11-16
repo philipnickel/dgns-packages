@@ -57,7 +57,13 @@ cmake -S . -B build -G Ninja \
   -DMFEM_USE_EXCEPTIONS=OFF \
   -DMFEM_ENABLE_TESTING=OFF \
   -DMFEM_ENABLE_EXAMPLES=OFF \
-  -DMFEM_ENABLE_MINIAPPS=OFF
+  -DMFEM_ENABLE_MINIAPPS=OFF \
+  || {
+    # A failed configure: show FindPETSc's try_compile/try_run attempts.
+    log=build/CMakeFiles/CMakeConfigureLog.yaml
+    [[ -f "$log" ]] && grep -n -A60 'petsc_works' "$log" | tail -n 400
+    exit 1
+  }
 
 cmake --build build --parallel "${CPU_COUNT}"
 cmake --install build
