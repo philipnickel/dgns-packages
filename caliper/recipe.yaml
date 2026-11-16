@@ -18,6 +18,10 @@ source:
     # Upstream af80b77 (after 2.15.0): missing <iterator>/<cstdlib> includes
     # that conda-forge's newer libc++ rejects on macOS.
     - caliper-iterator-cstdlib.patch
+    # GOTCHA (ext/gotcha): walk DT_RELA in libraries without a PLT (-fno-plt),
+    # so the mpi service sees MPI calls from conda-forge's hypre and from
+    # mfem-dgns; not yet upstream.
+    - gotcha-no-plt-rela.patch
 
 build:
   number: ${{ build }}

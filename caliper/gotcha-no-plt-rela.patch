@@ -1,0 +1,20 @@
+GOTCHA (Caliper's ext/gotcha, also LLNL/GOTCHA develop as of 2026-11-16)
+rewrites each library's GOT relocations from DT_JMPREL and then from DT_RELA
+or DT_REL, choosing between the two from DT_PLTREL alone. A library linked
+without a PLT (-fno-plt, as conda-forge builds hypre and mfem-dgns) has no
+DT_PLTREL, so is_rela stays 0, GOTCHA looks for the absent DT_REL and skips
+every GLOB_DAT entry: none of that library's MPI calls reach Caliper's mpi
+service. Treat a library with DT_RELA and no PLT as RELA.
+
+--- a/ext/gotcha/src/elf_ops.h
++++ b/ext/gotcha/src/elf_ops.h
+@@ -176,6 +176,9 @@
+       }                                                                 \
+     }                                                                   \
+   }                                                                     \
++  /* A library without PLT (-fno-plt) has no DT_PLTREL, but its GOT     \
++     relocations are in DT_RELA: walk them as RELA. */                  \
++  if (!jmprel && rela) is_rela = 1;                                     \
+   jmprel_count =                                                        \
+       jmprel_size / (is_rela ? sizeof(ElfW(Rela)) : sizeof(ElfW(Rel))); \
+   if (rel) rel_count = rel_size / rel_esz;                              \
