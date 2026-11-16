@@ -3,7 +3,7 @@ project(mfem_dgns_consumer LANGUAGES CXX)
 
 find_package(MFEM 4.10 REQUIRED CONFIG)
 
-foreach(smoke parmesh_smoke hdf5_smoke)
+foreach(smoke parmesh_smoke hdf5_smoke petsc_smoke)
   add_executable(${smoke} ${smoke}.cpp)
   target_include_directories(${smoke} PRIVATE ${MFEM_INCLUDE_DIRS})
   target_link_libraries(${smoke} PRIVATE ${MFEM_LIBRARIES})
