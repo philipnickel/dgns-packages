@@ -91,26 +91,79 @@ hypre facts:
   float and call `_flt` hypre functions directly. A second, float-only hypre
   in the same process clashes on symbols, so it's not an option.
 
-Does single precision cut communication? Only bandwidth. It halves the bytes
-per message but not the number of messages or the latency of each. On coarse
-AMG levels with tiny per-rank sizes (memory: down to <~10 DOFs/rank), messages
-are a few hundred bytes, latency-bound, and Allreduces carry scalars. Halving
-those saves next to nothing. Float helps the fine AMG levels, which are not
-the scaling problem. Single-node data: the AMG is <1 ms of a ~75 ms V-cycle.
-So if AMG limits strong scaling, the cost is latency and the number of
-communicating ranks, not flops or bytes **[measure]**.
+### What past runs already measured
 
-Fixes that target latency, in order of cost (all dgns-side or BoomerAMG
-options, stock MFEM):
-1. BoomerAMG options: `SetMaxCoarseSize`, `SetAggNumLevels` (aggressive
-   coarsening, fewer levels), `SetSeqThreshold` + `SetRedundant` (gather the
-   small levels onto one rank or solve them redundantly), and fewer cycles per
-   preconditioner application (`hypre parcsr_ls.h`) **[confirmed API]**.
-2. dgns-side agglomeration: build the coarse `HypreParMatrix` on a
-   sub-communicator (e.g. one rank per node), PCTelescope-style. dgns code
-   only.
-3. Precision (mixed hypre + direct `_flt` calls): only if measurement shows
-   the coarse solve is bandwidth- or flop-bound after 1-2.
+- **PR philipnickel/dgns#162 (2026-11-04, DTU, TGV 3D moving mesh,
+  Intel MPI).** Strong scaling broke down because of the AMG coarse solve.
+  Its cost at many ranks is the cost per BoomerAMG V-cycle on small
+  distributed levels: 0.6-0.8 ms per level at 64 ranks across nodes. Waiting
+  from imbalance and the CG reductions were ruled out. Fixes, now the
+  defaults (`configs/linear_solver/default.yaml`):
+  - `amg_relax_type` 6: hybrid symmetric GS, so fewer inner coarse-CG
+    iterations.
+  - `amg_aggressive_levels` 0.
+  - `amg_agglomeration_size` 2000: `HYPRE_BoomerAMGSetSeqThreshold`
+    (`multigrid.cpp:834`), so levels with a few rows per rank are solved
+    gathered.
+
+  Kept as experimental, off by default:
+  - `coarse_gather_ranks`: dgns-side `R A R^T` onto group leaders.
+  - Non-Galerkin.
+  - The additive cycles. Additive coarse correction about doubled the outer
+    iterations, and mult-additive + non-Galerkin segfaults in hypre.
+
+  After the fixes, Q3 strong-scaling efficiency against 16 ranks:
+
+  | Mesh | Efficiency |
+  |---|---|
+  | 64³, 16³ seed | 0.95 at 256 ranks |
+  | 32³, 8³ seed | 0.85 at 128 ranks |
+  | 32³, 32³ seed (no h-levels: AMG on the full Q1 mesh) | 0.65 at 128 ranks |
+- **dgns-results `scaling/strong_tgv` range times** (`cycle.coarse` against
+  the pressure preconditioner, 15 steps):
+  - 2026-10-28, AMG on the fine Q1 mesh: the coarse share grows from 1% at
+    16 ranks to **57% at 256 ranks** (32³) and 25% (64³).
+  - 2026-10-29, with h-levels down to a 512/4096-DOF Q1 coarse level: the
+    coarse share is ≤5% at every rank count (3.6% at 256 ranks on 32³).
+
+  The preprint's scaling section uses the h-level setup; there, pressure
+  and reassembly fall behind first, not the coarse solve.
+- **Coarse share in other recent profiles** (session transcripts): about
+  10-15% on the cylinder, KCS and turin180 free-surface runs; 23% on the
+  steady cavity.
+- **Per-level partitioning design** (`hodgles`
+  `docs/design/per-level-partitioning.md`, PR #240/#245). The 3D hill at 150
+  ranks has ~470 seed cells per rank, and "the coarse Q1 h-levels and the
+  AMG set the latency floor". Its stage A3 (agglomeration: Q1 levels below
+  a grain redistributed onto `K_l` ranks, `gather_ranks` as the coarsest
+  case) is the planned structural fix.
+
+So AMG did limit strong scaling. The cause measured was latency per level
+across nodes, and h-levels plus `SeqThreshold` already removed most of it in
+the TGV. What remains is the latency floor of the matrix-free Q1 h-levels and
+the AMG on wall-refined seeds at high rank counts.
+
+### Does single precision cut communication?
+
+Only bandwidth. It halves the bytes per message but not the number of
+messages or the latency of each. The measured cost (0.6-0.8 ms per AMG level
+at 64 ranks across nodes) is per-message latency on levels with a few rows
+per rank. Those messages are a few hundred bytes and the Allreduces carry
+scalars, so halving them saves next to nothing. Float would help only the
+upper AMG levels, which are bandwidth-bound and scale.
+
+Next steps for the coarse solve, in order (dgns-side or BoomerAMG options,
+stock MFEM):
+1. Measure the current defaults at scale on a wall-refined case (hill or
+   channel, 150-460 ranks), with the coarse region split into AMG setup,
+   AMG levels and the Q1 h-levels. Once MFEM and hypre are visible (section
+   1), MPI time nests under each. Try `coarse_gather_ranks` = 16/20
+   (one rank per node) together with `amg_agglomeration_size`.
+2. Per-level agglomeration (per-level-partitioning A3): it also removes the
+   floor of the matrix-free Q1 h-levels, which no AMG setting can.
+3. Precision (mixed hypre + direct `_flt` calls) only if step 1 shows a
+   bandwidth- or flop-bound coarse solve after 1-2. Not expected from the
+   data.
 
 ## 3. Additional solver libraries
 
@@ -121,7 +174,7 @@ it adds a run dependency to every solver environment.
 
 | Library | Helps with | Packaging cost (MPICH ABI) | Verdict |
 |---|---|---|---|
-| PETSc (`MFEM_USE_PETSC`) | Coarse: GAMG, PCTelescope (agglomeration), BoomerAMG via PETSc; Newton-Krylov: SNES (line search, JFNK) for steady drivers | conda-forge has MPI-variant builds; must use the same hypre. Check its hypre pin matches 3.2 **[assumed]** | Best single addition if steady/Newton work grows; for the coarse solve, option 2.2 does the same thing without it |
+| PETSc (`MFEM_USE_PETSC`) | Coarse: GAMG, PCTelescope (agglomeration), BoomerAMG via PETSc; Newton-Krylov: SNES (line search, JFNK) for steady drivers | conda-forge has MPI-variant builds; must use the same hypre. Check its hypre pin matches 3.2 **[assumed]** | Best single addition if steady/Newton work grows; for the coarse solve, dgns already has `coarse_gather_ranks` and plans A3, which cover PCTelescope's job |
 | SuperLU_DIST / MUMPS | Exact direct coarse solve on an agglomerated level; hypre can call SuperLU_DIST itself (`HYPRE_USING_DSUPERLU`, own hypre build) | On conda-forge | Only for small, already agglomerated coarse levels |
 | Ginkgo (`MFEM_USE_GINKGO`) | GPU later; mixed precision by design; its AMG (PGM) is weaker than BoomerAMG for our needs **[assumed]** | Own recipe (CMake, moderate) | Revisit with GPU work |
 | AmgX | GPU AMG only | NVIDIA-only, own recipe | GPU later only |
@@ -134,14 +187,16 @@ it adds a run dependency to every solver environment.
    with `-fno-plt`, Caliper `mpi-report`). Patch `caliper` (option A), test in
    the recipe (a `-fno-plt` consumer whose MPI calls must appear), open the
    upstream PR. Then drop `-fplt` from dgns if A works.
-2. **Measure** the pressure benchmark at 1/2/4 nodes (or 40-460 ranks on DTU)
-   with a dgns region around coarse setup/solve. Record time per level,
-   MPI calls and bytes in the coarse region, and BoomerAMG `PrintLevel`
-   statistics. Decide on precision from this:
-   - coarse share <10% of the V-cycle at the target rank count: stop;
-   - dominated by small messages/Allreduce: BoomerAMG options (2.1), then
-     agglomeration (2.2);
-   - bandwidth- or flop-bound fine AMG levels: consider mixed precision (2.3).
+2. **Measure** a wall-refined case (hill or channel, 150-460 DTU ranks) on
+   the current defaults (PR #162), with `cycle.coarse` split into AMG
+   setup/levels and the Q1 h-levels. Record MPI calls and bytes per region,
+   and the BoomerAMG `PrintLevel` statistics (`amg_print_level`). Rerun with
+   `coarse_gather_ranks` per node. Decide from this:
+   - coarse plus Q1 h-levels <10% of the V-cycle at the target rank count:
+     stop;
+   - latency-bound (many small messages): per-level agglomeration
+     (per-level-partitioning A3);
+   - bandwidth- or flop-bound AMG levels: consider mixed precision.
 3. **Libraries**: PETSc only when a steady/Newton driver needs SNES or 2.2
    proves too much code; Ginkgo/AmgX when GPU work starts.
 
@@ -159,3 +214,8 @@ explicit OK.
 - hypre mixed precision: https://hypre.readthedocs.io/en/latest/ch-mprecision.html
 - PETSc + hypre 3.0 mixed precision build issue: https://gitlab.com/petsc/petsc/-/issues/1828
 - conda-forge hypre recipe: https://github.com/conda-forge/hypre-feedstock/tree/main/recipe
+- Past measurements: PR philipnickel/dgns#162 (description: DTU tables and
+  job paths under `/work3/s214960/dgns/develop/scaling/`);
+  `dgns-results/scaling/strong_tgv/` run logs (`[hodgles range times]`);
+  preprint `Chapters/04_Results/performance.tex`; `hodgles`
+  `docs/design/per-level-partitioning.md`.
