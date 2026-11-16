@@ -5,7 +5,7 @@
 # a run sets CALI_CONFIG (or uses cali::ConfigManager).
 context:
   version: 2.15.0
-  build: 1
+  build: 2
 
 package:
   name: caliper
@@ -86,6 +86,31 @@ tests:
     files:
       recipe:
         - test-cmake/
+  # linux (GOTCHA): MPI calls from a library linked without a PLT (-fno-plt,
+  # -z now, as conda-forge builds hypre) show in mpi-report
+  # (test-gotcha/CMakeLists.txt).
+  - if: linux
+    then:
+      script:
+        - cmake -S test-gotcha -B build-gotcha -G Ninja -DCMAKE_BUILD_TYPE=Release
+            -DMPI_C_COMPILER=$PREFIX/bin/mpicc
+        - cmake --build build-gotcha
+        # The library must have no PLT, or the test does not test the patch.
+        - ${READELF:-readelf} -d build-gotcha/libno_plt_comm.so
+        - "! ${READELF:-readelf} -d build-gotcha/libno_plt_comm.so | grep -q JMPREL"
+        - ${READELF:-readelf} -r build-gotcha/libno_plt_comm.so | grep MPI_Allreduce
+        - env CALI_CONFIG=mpi-report mpiexec -n 2 build-gotcha/gotcha_no_plt > gotcha-report.txt 2>&1
+        - cat gotcha-report.txt
+        - grep -q MPI_Allreduce gotcha-report.txt
+        - grep -q MPI_Barrier gotcha-report.txt
+      requirements:
+        run:
+          - ${{ compiler('c') }}
+          - cmake >=3.24
+          - ninja
+      files:
+        recipe:
+          - test-gotcha/
 
 about:
   homepage: https://github.com/LLNL/Caliper
