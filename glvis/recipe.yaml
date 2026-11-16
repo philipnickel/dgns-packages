@@ -7,7 +7,7 @@
 # any field data stored. MPI is a variant (../variants.yaml), as for mfem-dgns.
 context:
   version: "4.5"
-  build: 0
+  build: 1
 
 package:
   name: glvis
@@ -73,7 +73,7 @@ requirements:
     - ninja
   host:
     - ${{ mpi }}
-    - mfem-dgns 4.10.0.post5.* mpi_${{ mpi }}_*
+    - mfem-dgns 4.10.0.post6.* mpi_${{ mpi }}_*
     - sdl2
     - glew
     - glm
@@ -85,7 +85,7 @@ requirements:
         - libgl-devel
         - libegl-devel
   run:
-    - mfem-dgns 4.10.0.post5.* mpi_${{ mpi }}_*
+    - mfem-dgns 4.10.0.post6.* mpi_${{ mpi }}_*
     - if: linux
       then:
         - libegl

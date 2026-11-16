@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Build stock MFEM 4.10 (upstream tarball, no source patches) into $PREFIX
-# against conda-forge's hypre, METIS, zlib, BLAS/LAPACK and parallel HDF5 and
+# against conda-forge's hypre, METIS, zlib, BLAS/LAPACK, parallel HDF5 and PETSc and
 # this directory's sibling packages caliper and gslib. Feature set:
 #   mfem@4.10.0 +mpi +metis +zlib +lapack +gslib +caliper +hdf5 ~mpfr
-#               ~threadsafe ~libceed ~openmp cxxstd=17 (hypre, CPU only)
+#               +petsc ~threadsafe ~libceed ~openmp cxxstd=17 (hypre, CPU only)
 set -euxo pipefail
 
 # ---- Compiler flags --------------------------------------------------------
@@ -46,6 +46,9 @@ cmake -S . -B build -G Ninja \
   -DCALIPER_DIR="$PREFIX" \
   -DMFEM_USE_HDF5=ON \
   -DHDF5_DIR="$PREFIX" \
+  -DMFEM_USE_PETSC=ON \
+  -DPETSC_DIR="$PREFIX" \
+  -DPETSC_ARCH= \
   -DMFEM_USE_MPFR=OFF \
   -DMFEM_THREAD_SAFE=OFF \
   -DMFEM_USE_OPENMP=OFF \
