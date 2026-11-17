@@ -3,6 +3,15 @@
 # MPI is a variant (../variants.yaml); the MPI run dependency comes from the
 # MPI package's run_exports. On linux-64 one x86-64-v3 build (conda-forge's
 # microarch-level helper, ../variants.yaml).
+#
+# hypre's index width is a variant too (hypre_int, ../variants.yaml): the
+# default "32" builds against conda-forge's hypre (32-bit HYPRE_BigInt), with
+# PETSc; "mixed" builds against hypre-dgns (../hypre: 64-bit HYPRE_BigInt,
+# 32-bit HYPRE_Int), for spaces past 2^31 global dofs. The mixed-int build has
+# no PETSc: conda-forge's PETSc links the 32-bit hypre, and MFEM requires the
+# two to agree on the index width (linalg/petsc.hpp). Its build string starts
+# with mixedint_ and it is down-prioritized, so a consumer gets it only by
+# asking for build = "mixedint_*".
 context:
   version: 4.10.0.post6
   mfem_version: 4.10.0
@@ -10,6 +19,7 @@ context:
   # The preferred (highest) microarchitecture level gets the highest build
   # number, so the solver installs it wherever __archspec allows.
   build_number: ${{ build + 100 * (microarch_level | int - 1) }}
+  mixedint: ${{ hypre_int == "mixed" }}
 
 package:
   name: mfem-dgns
@@ -22,8 +32,18 @@ source:
 
 build:
   number: ${{ build_number }}
-  string: mpi_${{ mpi }}_h${{ hash }}_${{ build_number }}
-  script: build.sh
+  string: ${{ "mixedint_" if mixedint else "" }}mpi_${{ mpi }}_h${{ hash }}_${{ build_number }}
+  script:
+    file: build.sh
+    env:
+      MFEM_HYPRE_INT: ${{ hypre_int }}
+  variant:
+    # The hash leaves hypre_int out, so the default build keeps the hash it
+    # had before the key existed (already on the channel); the two builds
+    # differ by the mixedint_ prefix. track_features keep the default first.
+    ignore_keys:
+      - hypre_int
+    down_prioritize_variant: ${{ 1 if mixedint else 0 }}
 
 requirements:
   build:
@@ -45,7 +65,9 @@ requirements:
   host:
     - ${{ mpi }}
     # hypre 3.x builds carry no mpi_ string; the host MPI selects the build.
-    - hypre 3.2.*
+    - if: mixedint
+      then: hypre-dgns 3.2.* mixedint_mpi_${{ mpi }}_*
+      else: hypre 3.2.*
     - metis 5.*
     - zlib
     # OpenBLAS explicitly: with PETSc's link line, libmfem's DT_NEEDED is
@@ -59,13 +81,17 @@ requirements:
     - gslib 1.0.9.* mpi_${{ mpi }}_*
     # conda-forge's real-scalar PETSc, built with hypre (MFEM requires it)
     # and with the host MPI (the build string carries no mpi_; the MPI
-    # selects the build, as for hypre).
-    - petsc 3.26.* real_*
+    # selects the build, as for hypre). Not with the mixed-int hypre.
+    - if: not mixedint
+      then: petsc 3.26.* real_*
   run:
     # mfem.hpp includes the hypre, METIS, zlib, HDF5, Caliper and PETSc headers, so
     # consumers need the development packages; versions come from run_exports.
-    - hypre
-    - petsc
+    - if: mixedint
+      then: hypre-dgns
+      else: hypre
+    - if: not mixedint
+      then: petsc
     - libopenblas
     - metis
     - zlib
@@ -88,13 +114,19 @@ tests:
       - grep -q '^#define MFEM_USE_GSLIB' $PREFIX/include/mfem/config/_config.hpp
       - grep -q '^#define MFEM_USE_CALIPER' $PREFIX/include/mfem/config/_config.hpp
       - grep -q '^#define MFEM_USE_HDF5' $PREFIX/include/mfem/config/_config.hpp
-      - grep -q '^#define MFEM_USE_PETSC' $PREFIX/include/mfem/config/_config.hpp
+      - if: mixedint
+        then:
+          - "! grep -q '^#define MFEM_USE_PETSC' $PREFIX/include/mfem/config/_config.hpp"
+          - grep -q '^#define HYPRE_MIXEDINT 1' $PREFIX/include/HYPRE_config.h
+        else:
+          - grep -q '^#define MFEM_USE_PETSC' $PREFIX/include/mfem/config/_config.hpp
       - "! grep -q '^#define MFEM_THREAD_SAFE' $PREFIX/include/mfem/config/_config.hpp"
       - "! grep -q '^#define MFEM_USE_MPFR' $PREFIX/include/mfem/config/_config.hpp"
       - "! grep -q '^#define MFEM_USE_CEED' $PREFIX/include/mfem/config/_config.hpp"
       # MFEM's parallel VTKHDF path needs an HDF5 built with MPI-IO.
       - grep -q '^#define H5_HAVE_PARALLEL 1' $PREFIX/include/H5pubconf.h
       - cmake -S test-cmake -B build-consumer -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DEXPECT_HYPRE_MIXEDINT=${{ "ON" if mixedint else "OFF" }}
       - cmake --build build-consumer
       - mpiexec -n 2 build-consumer/parmesh_smoke
       # Caliper reports the consumer's MFEM_PERF_SCOPE region when enabled.
@@ -104,7 +136,11 @@ tests:
       # Two ranks write one shared VTKHDF file (ParMesh + GridFunction, two cycles).
       - mpiexec -n 2 build-consumer/hdf5_smoke
       # A Poisson solve through MFEM's PETSc wrappers: CG with GAMG on 2 ranks.
-      - mpiexec -n 2 build-consumer/petsc_smoke
+      - if: not mixedint
+        then: mpiexec -n 2 build-consumer/petsc_smoke
+      # MFEM's hypre path: HypreParMatrix, BoomerAMG and HyprePCG on 2 ranks,
+      # with the index widths of the hypre it was built against.
+      - mpiexec -n 2 build-consumer/hypre_smoke
       - test -s hdf5-out/hdf5_smoke.vtkhdf
       - ls -l hdf5-out
     requirements:

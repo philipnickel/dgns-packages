@@ -37,3 +37,12 @@ microarch_level:
     then: 3
   - if: osx
     then: 1
+
+# hypre's integer width, for mfem-dgns only: "32" against conda-forge's hypre
+# (32-bit HYPRE_BigInt, the default, with PETSc), "mixed" against hypre-dgns
+# (../hypre: 64-bit HYPRE_BigInt, 32-bit HYPRE_Int; no PETSc), for spaces
+# past 2^31 global dofs (hodgles docs/design/large-index-limits.md). The mfem
+# recipe leaves the key out of its hash and down-prioritizes "mixed".
+hypre_int:
+  - "32"
+  - mixed

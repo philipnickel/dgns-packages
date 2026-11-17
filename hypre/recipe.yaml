@@ -1,0 +1,124 @@
+# hypre-dgns for the dgns conda channel (README.md): stock upstream hypre
+# 3.2.0 built with mixed integers (HYPRE_ENABLE_MIXEDINT): HYPRE_BigInt, the
+# global row and column numbers, is 64-bit, and HYPRE_Int, the local CSR
+# indices, stays 32-bit. MFEM numbers every parallel space's global dofs in
+# HYPRE_BigInt, so with conda-forge's hypre (32-bit HYPRE_BigInt) a space
+# past 2^31 global dofs aborts in ParMesh::GenerateOffsets ("overflow in
+# offsets"); this build removes that wall (hodgles
+# docs/design/large-index-limits.md).
+#
+# Its own package name, not a `hypre` build: the solver lists the dgns
+# channel before conda-forge with strict channel priority, so a `hypre` here
+# would hide conda-forge's 32-bit hypre from every environment (and PETSc's
+# `hypre >=3.2,<3.3` would accept this one: a silent index-width ABI break).
+# It installs the same files as conda-forge's hypre, so the two exclude each
+# other (run_constraints).
+#
+# Mixed-int rather than bigint: hypre's bigint needs an ILP64 BLAS/LAPACK
+# (its configure refuses conda-forge's LP64 OpenBLAS), doubles every local
+# index array, and makes MFEM deep-copy every CSR it hands to hypre
+# (linalg/hypre.cpp). Mixed-int keeps the local arrays 32-bit; only the
+# column maps and partitions widen.
+context:
+  version: 3.2.0
+  build: 0
+
+package:
+  name: hypre-dgns
+  version: ${{ version }}
+
+source:
+  # The same release as conda-forge's hypre 3.2.0 in the solver's lock.
+  url: https://github.com/hypre-space/hypre/archive/refs/tags/v${{ version }}.tar.gz
+  sha256: 5273205a310fb6aa3ae506ce216760fb67b30e02024874f3cdb8b811e4801de7
+
+build:
+  number: ${{ build }}
+  # The integer mode first, then conda-forge's MPI variant convention.
+  string: mixedint_mpi_${{ mpi }}_h${{ hash }}_${{ build }}
+  script:
+    - cmake -S src -B build -G Ninja ${CMAKE_ARGS}
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_INSTALL_LIBDIR=lib
+        -DBUILD_SHARED_LIBS=ON
+        -DMPI_C_COMPILER=$PREFIX/bin/mpicc
+        -DHYPRE_ENABLE_MPI=ON
+        -DHYPRE_ENABLE_MIXEDINT=ON
+        -DHYPRE_ENABLE_BIGINT=OFF
+        -DHYPRE_ENABLE_OPENMP=OFF
+        -DHYPRE_ENABLE_HYPRE_BLAS=OFF
+        -DHYPRE_ENABLE_HYPRE_LAPACK=OFF
+        "-DTPL_BLAS_LIBRARIES=$PREFIX/lib/libblas${SHLIB_EXT}"
+        "-DTPL_LAPACK_LIBRARIES=$PREFIX/lib/liblapack${SHLIB_EXT};$PREFIX/lib/libblas${SHLIB_EXT}"
+        -DHYPRE_BUILD_TESTS=OFF
+        -DHYPRE_BUILD_EXAMPLES=OFF
+    - cmake --build build --parallel ${CPU_COUNT}
+    - cmake --install build
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    # The glibc floor (../variants.yaml c_stdlib_version).
+    - ${{ stdlib('c') }}
+    # Same compiler pins as caliper, gslib, mfem-dgns and the solver.
+    - if: linux
+      then: gcc_linux-64 14.*
+    - if: linux
+      then: gxx_linux-64 14.*
+    - cmake >=3.24
+    - ninja
+  host:
+    - ${{ mpi }}
+    # LP64 BLAS/LAPACK, as conda-forge's hypre (OpenBLAS, as mfem-dgns).
+    - libblas * *openblas
+    - liblapack * *openblas
+  run_constraints:
+    # conda-forge's hypre installs the same libHYPRE and headers.
+    - hypre <0a0
+  run_exports:
+    # The integer width is ABI: pin the exact build, as mfem-dgns does.
+    - ${{ pin_subpackage('hypre-dgns', exact=True) }}
+
+tests:
+  - package_contents:
+      include:
+        - HYPRE.h
+        - HYPRE_config.h
+      lib:
+        - HYPRE
+      files:
+        - lib/cmake/HYPRE/HYPREConfig.cmake
+  - script:
+      - grep -q '^#define HYPRE_MIXEDINT 1' $PREFIX/include/HYPRE_config.h
+      - "! grep -q '^#define HYPRE_BIGINT' $PREFIX/include/HYPRE_config.h"
+      - cmake -S test -B build-test -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DMPI_C_COMPILER=$PREFIX/bin/mpicc
+      - cmake --build build-test
+      # A 1D Laplacian whose global rows straddle 2^31, solved by PCG with
+      # BoomerAMG on 2 ranks.
+      - mpiexec -n 2 build-test/bigint_rows
+    requirements:
+      run:
+        - ${{ compiler('c') }}
+        - cmake >=3.24
+        - ninja
+    files:
+      recipe:
+        - test/
+
+about:
+  homepage: https://www.llnl.gov/casc/hypre/
+  repository: https://github.com/hypre-space/hypre
+  documentation: https://hypre.readthedocs.io
+  license: Apache-2.0 OR MIT
+  license_file:
+    - COPYRIGHT
+    - LICENSE-APACHE
+    - LICENSE-MIT
+  summary: hypre 3.2.0 with 64-bit global indices (mixed-int) for dgns
+  description: |
+    Stock upstream hypre 3.2.0 (no patches), shared, MPI, external LP64
+    BLAS/LAPACK, built with HYPRE_ENABLE_MIXEDINT: 64-bit HYPRE_BigInt
+    (global indices), 32-bit HYPRE_Int (local indices). For problems past
+    2^31 global unknowns. Conflicts with conda-forge's hypre.

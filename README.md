@@ -15,6 +15,7 @@ The old channel stays readable for older checkouts.
 | `caliper/` | `caliper` 2.15.0 | LLNL Caliper, shared, MPI; upstream tarball plus upstream fix af80b77 (`caliper-iterator-cstdlib.patch`) and a GOTCHA fix so the mpi service sees MPI calls from libraries without a PLT, i.e. hypre and MFEM (`gotcha-no-plt-rela.patch`) |
 | `gslib/` | `gslib` 1.0.9 | Nek5000 GSLIB, shared, MPI (MFEM's FindPointsGSLIB) |
 | `reflect-cpp/` | `reflect-cpp` 0.26.2 | the option contract's serialization; its own README.md |
+| `hypre/` | `hypre-dgns` 3.2.0 | stock upstream hypre built with mixed integers (`HYPRE_ENABLE_MIXEDINT`: 64-bit `HYPRE_BigInt`, 32-bit `HYPRE_Int`), for the `mfem-dgns` mixed-int variant only; conda-forge's 32-bit `hypre` stays the default ("Variants", `hypre_int`) |
 | `mfem/` | `mfem-dgns` 4.10.0.post6 | stock upstream MFEM 4.10.0 (no patches): MPI, hypre, METIS, zlib, LAPACK, GSLIB, Caliper, parallel HDF5, PETSc (since post6) |
 | `glvis/` | `glvis` 4.5 | GLVis, MFEM's visualization tool, against `mfem-dgns`, headless (EGL on linux, CGL on macOS). Patches: upstream PR #374's exact cutting plane (core only, `glvis-cutting-plane-core-pr374.patch`); the same as a socket-stream command `cutting_plane <phi> <theta> <translation> <kind> <alg>` (`glvis-stream-cutting-plane.patch`); loading grid functions from files with zlib-enabled MFEM (`glvis-file-reader-complex-peek.patch`) |
 
@@ -60,11 +61,12 @@ implementation (on DTU's GPU-less nodes: the system Mesa, to be checked there).
 
 ```
 caliper ─┐
-gslib  ──┴─> mfem-dgns ─┐
+gslib  ──┼─> mfem-dgns ─┐
+hypre  ──┘ (mixed-int)  │
 reflect-cpp ────────────┴─> dgns-solver (built from the private dgns repository)
 ```
 
-Build caliper and gslib before mfem; reflect-cpp is independent.
+Build caliper, gslib and hypre before mfem; reflect-cpp is independent.
 
 ## Variants
 
@@ -96,6 +98,20 @@ finds it without `--variant-config`):
   (Haswell, which defines v3) and EPYC 7551 (Zen 1); LUMI-C's EPYC 7763
   (Zen 3); AWS hpc7a (Zen 4). osx-arm64 builds once, with
   `-mcpu=apple-m1`.
+- `hypre_int` (mfem only): hypre's integer width. `"32"`, the default,
+  builds against conda-forge's hypre (32-bit `HYPRE_BigInt`) with PETSc,
+  as before the key existed; the mfem recipe leaves the key out of its
+  hash, so this build keeps its hash. `mixed` builds against `hypre-dgns`
+  (64-bit `HYPRE_BigInt`, global dofs past 2^31; hodgles
+  `docs/design/large-index-limits.md`) without PETSc, since conda-forge's
+  PETSc links the 32-bit hypre and MFEM requires the two to agree. Its build
+  string starts with `mixedint_` and it is down-prioritized (track
+  features), so a consumer gets it only by asking:
+  `mfem-dgns = { version = "==4.10.0.post6", build = "mixedint_*" }`.
+  `hypre-dgns` is its own package, not a `hypre` build: with the dgns
+  channel first and strict channel priority, a `hypre` here would hide
+  conda-forge's from every environment. It conflicts with `hypre`
+  (`run_constraints: hypre <0a0`).
 
 ### Site MPI (DTU, LUMI)
 

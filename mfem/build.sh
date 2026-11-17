@@ -4,7 +4,26 @@
 # this directory's sibling packages caliper and gslib. Feature set:
 #   mfem@4.10.0 +mpi +metis +zlib +lapack +gslib +caliper +hdf5 ~mpfr
 #               +petsc ~threadsafe ~libceed ~openmp cxxstd=17 (hypre, CPU only)
+# The hypre_int=mixed variant (recipe.yaml) builds against hypre-dgns
+# (64-bit HYPRE_BigInt) instead, without PETSc (~petsc).
 set -euxo pipefail
+
+# ---- hypre index width -----------------------------------------------------
+# MFEM takes HYPRE_BigInt from hypre's HYPRE_config.h; nothing to configure
+# beyond leaving out conda-forge's PETSc, which links the 32-bit hypre.
+case "${MFEM_HYPRE_INT:-32}" in
+  32)
+    PETSC_ARGS=(-DMFEM_USE_PETSC=ON -DPETSC_DIR="$PREFIX" -DPETSC_ARCH=)
+    ;;
+  mixed)
+    grep -q '^#define HYPRE_MIXEDINT 1' "$PREFIX/include/HYPRE_config.h"
+    PETSC_ARGS=(-DMFEM_USE_PETSC=OFF)
+    ;;
+  *)
+    echo "unknown MFEM_HYPRE_INT=${MFEM_HYPRE_INT}" >&2
+    exit 1
+    ;;
+esac
 
 # ---- Compiler flags --------------------------------------------------------
 # Conda-forge's CXXFLAGS carry -O2, which comes after CMake's Release -O3 in
@@ -46,9 +65,7 @@ cmake -S . -B build -G Ninja \
   -DCALIPER_DIR="$PREFIX" \
   -DMFEM_USE_HDF5=ON \
   -DHDF5_DIR="$PREFIX" \
-  -DMFEM_USE_PETSC=ON \
-  -DPETSC_DIR="$PREFIX" \
-  -DPETSC_ARCH= \
+  "${PETSC_ARGS[@]}" \
   -DMFEM_USE_MPFR=OFF \
   -DMFEM_THREAD_SAFE=OFF \
   -DMFEM_USE_OPENMP=OFF \
