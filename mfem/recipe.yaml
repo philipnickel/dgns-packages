@@ -110,6 +110,10 @@ tests:
         - lib/cmake/mfem/MFEMConfig.cmake
         - share/mfem/config.mk
   - script:
+      # GitHub's Azure runners may expose a MANA verbs device on which UCX's
+      # ud_verbs transport fails MPI_Init ("Address not valid"); the tests
+      # run on one host, so shared memory and TCP are enough.
+      - export UCX_TLS=self,sm,tcp
       - grep -q '^#define MFEM_USE_MPI' $PREFIX/include/mfem/config/_config.hpp
       - grep -q '^#define MFEM_USE_GSLIB' $PREFIX/include/mfem/config/_config.hpp
       - grep -q '^#define MFEM_USE_CALIPER' $PREFIX/include/mfem/config/_config.hpp

@@ -90,6 +90,10 @@ tests:
       files:
         - lib/cmake/HYPRE/HYPREConfig.cmake
   - script:
+      # GitHub's Azure runners may expose a MANA verbs device on which UCX's
+      # ud_verbs transport fails MPI_Init ("Address not valid"); the tests
+      # run on one host, so shared memory and TCP are enough.
+      - export UCX_TLS=self,sm,tcp
       - grep -q '^#define HYPRE_MIXEDINT 1' $PREFIX/include/HYPRE_config.h
       - "! grep -q '^#define HYPRE_BIGINT' $PREFIX/include/HYPRE_config.h"
       - cmake -S test -B build-test -G Ninja -DCMAKE_BUILD_TYPE=Release
